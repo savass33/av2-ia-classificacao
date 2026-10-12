@@ -1,5 +1,4 @@
-"""Classificadores NumPy para o dataset OpenML 40701."""
-from .models.knn import KNNClassifier
-from .models.naive_bayes import NaiveBayesMultivariate, NaiveBayesUnivariate
+"""Projeto acadêmico de classificação com NumPy."""
+from .modelos import KNNClassifier, NaiveBayesMultivariate, NaiveBayesUnivariate
 
 __all__ = ["KNNClassifier", "NaiveBayesUnivariate", "NaiveBayesMultivariate"]
