@@ -73,8 +73,10 @@ Nenhuma biblioteca de machine learning pronta é necessária.
 
 ```bash
 python -m pip install -r requirements.txt
-python classificacao.py
+python -m av2_classificacao
 ```
+
+O comando `python classificacao.py` continua disponível como atalho compatível.
 
 Para baixar novamente o dataset do OpenML:
 
@@ -95,8 +97,36 @@ Opções adicionais:
 
 ```text
 av2-ia-classificacao/
-├── classificacao.py   # carregamento, modelos, métricas e validação cruzada
-├── requirements.txt   # dependência NumPy
-├── .gitignore         # cache Python e dataset baixado
-└── README.md          # documentação e resultados de referência
+├── av2_classificacao/
+│   ├── data/
+│   │   ├── arff.py                 # leitura, codificação e separação de X/y
+│   │   └── openml.py               # download, checksum e cache do dataset
+│   ├── evaluation/
+│   │   ├── cross_validation.py    # folds, ajuste e predição cronometrados
+│   │   ├── metrics.py             # acurácia, precisão, recall e F1
+│   │   └── reporting.py           # tabela de resultados
+│   ├── models/
+│   │   ├── base.py                # contrato Classifier (Protocol)
+│   │   ├── knn.py                 # kNN Euclidiano e Manhattan
+│   │   └── naive_bayes.py         # Naive Bayes uni e multivariado
+│   ├── preprocessing/
+│   │   ├── fold.py                # imputação e padronização por fold
+│   │   └── split.py               # divisão manual holdout
+│   ├── cli.py                     # interface de linha de comando
+│   ├── config.py                  # ID OpenML, caminhos e rótulo positivo
+│   ├── experiments.py             # configurações dos modelos avaliados
+│   └── self_check.py              # verificações rápidas de invariantes
+├── classificacao.py               # atalho compatível para execução
+├── requirements.txt               # dependência NumPy
+├── .gitignore                     # cache Python e dataset baixado
+└── README.md                      # documentação e resultados de referência
 ```
+
+### Organização e princípios SOLID
+
+- **Responsabilidade única:** aquisição, parsing ARFF, preparação, modelos, métricas, validação e apresentação ficam em módulos separados.
+- **Inversão de dependência:** a validação cruzada recebe qualquer estimador que implemente o contrato estrutural `Classifier` (`fit` e `predict`), sem depender de uma classe concreta.
+- **Aberto para extensão:** um novo classificador pode ser implementado em `models/` e registrado em `experiments.py` sem alterar o parser ou o cálculo das métricas.
+- **Interface enxuta:** os estimadores expõem somente as operações necessárias para treino e predição.
+
+Os módulos usam NumPy e a biblioteca padrão; não há dependência de pandas ou scikit-learn.
