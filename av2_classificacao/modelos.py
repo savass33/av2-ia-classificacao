@@ -56,6 +56,30 @@ class KNNClassifier:
         return np.asarray(predictions, dtype=self.y_train.dtype)
 
 
+class MajorityClassifier:
+    """Baseline que prevê sempre a classe mais frequente no treino."""
+
+    def __init__(self) -> None:
+        self.majority_class_: float | None = None
+
+    def fit(self, X: np.ndarray, y: np.ndarray) -> "MajorityClassifier":
+        X = np.asarray(X)
+        y = np.asarray(y)
+        if X.ndim != 2 or y.ndim != 1 or X.shape[0] != y.shape[0] or y.size == 0:
+            raise ValueError("fit espera X 2D e y 1D não vazio com o mesmo número de linhas.")
+        classes, counts = np.unique(y, return_counts=True)
+        self.majority_class_ = classes[int(np.argmax(counts))]
+        return self
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        if self.majority_class_ is None:
+            raise RuntimeError("Chame fit(X, y) antes de predict(X).")
+        X = np.asarray(X)
+        if X.ndim != 2:
+            raise ValueError("predict espera uma matriz X 2D.")
+        return np.full(X.shape[0], self.majority_class_)
+
+
 class NaiveBayesUnivariate:
     """Naive Bayes Gaussiano: densidade normal univariada por atributo."""
 

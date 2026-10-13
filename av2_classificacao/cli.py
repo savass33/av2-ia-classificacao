@@ -6,10 +6,18 @@ from pathlib import Path
 
 import numpy as np
 
-from .avaliacao import POSITIVE_LABEL, print_table, run_experiments
+from .avaliacao import POSITIVE_LABEL, print_confusion_matrices, print_table, run_experiments
 from .dados import DEFAULT_DATA_PATH, OPENML_DATASET_ID, load_openml_churn
-from .modelos import KNNClassifier, NaiveBayesMultivariate, NaiveBayesUnivariate
+from .modelos import KNNClassifier, MajorityClassifier, NaiveBayesMultivariate, NaiveBayesUnivariate
 from .preparacao import _standardize_fold, train_test_split
+
+EXCLUDED_ABLATION_FEATURES = ("phone_number", "state", "area_code")
+EXCLUDED_CHARGE_FEATURES = (
+    "total_day_charge",
+    "total_eve_charge",
+    "total_night_charge",
+    "total_intl_charge",
+)
 
 def run_self_check() -> None:
     """Checagens pequenas de shape, divisão, fit/predict e variância zero."""
@@ -29,6 +37,7 @@ def run_self_check() -> None:
     smoke_models = (
         KNNClassifier(k=1, metric="euclidean"),
         KNNClassifier(k=1, metric="manhattan"),
+        MajorityClassifier(),
         NaiveBayesUnivariate(),
         NaiveBayesMultivariate(),
     )
@@ -48,10 +57,24 @@ def main() -> None:
     parser.add_argument("--folds", type=int, default=5, help="Número de folds (padrão: 5).")
     parser.add_argument("--neighbors", type=int, default=5, help="k do kNN (padrão: 5).")
     parser.add_argument("--seed", type=int, default=42, help="Semente da validação cruzada.")
+    parser.add_argument(
+        "--timing-repeats", type=int, default=5,
+        help="Repetições de fit/predict por fold para estimar tempos (padrão: 5).",
+    )
     args = parser.parse_args()
 
     run_self_check()
     X, y = load_openml_churn(args.data, force_download=args.refresh_data)
+    X_reduced, y_reduced = load_openml_churn(
+        args.data,
+        exclude_features=EXCLUDED_ABLATION_FEATURES,
+    )
+    X_without_charges, y_without_charges = load_openml_churn(
+        args.data,
+        exclude_features=EXCLUDED_CHARGE_FEATURES,
+    )
+    if not np.array_equal(y, y_reduced) or not np.array_equal(y, y_without_charges):
+        raise AssertionError("A filtragem de atributos alterou a ordem ou os rótulos do dataset.")
     classes, counts = np.unique(y, return_counts=True)
     if not np.any(classes == POSITIVE_LABEL):
         raise ValueError(f"Rótulo positivo {POSITIVE_LABEL} não existe no dataset: {classes}.")
@@ -62,8 +85,50 @@ def main() -> None:
         f"{label:g}: {count} ({count / y.size:.1%})" for label, count in zip(classes, counts)
     ))
     print(f"Validação cruzada: {args.folds}-fold estratificada; kNN k={args.neighbors}; seed={args.seed}")
-    print("A padronização é ajustada apenas no treino de cada fold; tempos incluem somente fit/predict.")
-    print("Self-check: split 4x2, nulos por fold, fit/predict dos quatro modelos e variância zero: OK")
-    results = run_experiments(X, y, folds=args.folds, neighbors=args.neighbors, random_state=args.seed)
-    print("\nTabela 1 — Média ± desvio padrão entre folds")
+    print("A padronização é ajustada apenas no treino de cada fold.")
+    print(
+        f"Tempos: média de {args.timing_repeats} medições por fold com "
+        "time.perf_counter(); são estimativas dependentes da máquina."
+    )
+    print("Self-check: split 4x2, nulos por fold, fit/predict dos modelos e variância zero: OK")
+    results = run_experiments(
+        X, y, folds=args.folds, neighbors=args.neighbors, random_state=args.seed,
+        timing_repeats=args.timing_repeats,
+    )
+    print("\nTabela 1A — Dataset original; média ± desvio padrão entre folds")
     print_table(results)
+    print_confusion_matrices(results)
+
+    reduced_results = run_experiments(
+        X_reduced, y_reduced, folds=args.folds, neighbors=args.neighbors,
+        random_state=args.seed, timing_repeats=args.timing_repeats,
+    )
+    print(
+        "\nTabela 1B — Ablação sem phone_number, state e area_code "
+        "(mesmos folds); média ± desvio padrão entre folds"
+    )
+    print(f"Atributos preditores: {X_reduced.shape[1]}")
+    print_table(reduced_results)
+    print_confusion_matrices(reduced_results)
+    print(
+        "\nNota: state e area_code foram removidos nesta ablação porque a codificação "
+        "numérica atual não representa distâncias entre categorias. Isso não demonstra "
+        "que localização seja irrelevante."
+    )
+
+    charge_results = run_experiments(
+        X_without_charges, y_without_charges, folds=args.folds,
+        neighbors=args.neighbors, random_state=args.seed,
+        timing_repeats=args.timing_repeats,
+    )
+    print(
+        "\nTabela 1C — Ablação sem os quatro atributos de cobrança "
+        "(mesmos folds); média ± desvio padrão entre folds"
+    )
+    print(f"Atributos preditores: {X_without_charges.shape[1]}")
+    print_table(charge_results)
+    print_confusion_matrices(charge_results)
+    print(
+        "\nNota: cada cobrança é quase uma constante multiplicada pelos minutos "
+        "correspondentes; este experimento mostra o efeito de remover os pares redundantes."
+    )

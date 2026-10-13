@@ -115,7 +115,11 @@ def _encode_arff_rows(text: str) -> tuple[list[str], list[str]]:
     return [name for name, _ in attributes], numeric_lines
 
 
-def parse_arff(text: str, target_name: str = "class") -> tuple[np.ndarray, np.ndarray]:
+def parse_arff(
+    text: str,
+    target_name: str = "class",
+    exclude_features: tuple[str, ...] = (),
+) -> tuple[np.ndarray, np.ndarray]:
     """Lê ARFF numérico/nominal com NumPy, separa X/y e imputa faltantes."""
     attribute_names, numeric_lines = _encode_arff_rows(text)
     matches = [i for i, name in enumerate(attribute_names) if name.lower() == target_name.lower()]
@@ -138,7 +142,22 @@ def parse_arff(text: str, target_name: str = "class") -> tuple[np.ndarray, np.nd
     valid_targets = ~np.isnan(raw[:, target_index])
     raw = raw[valid_targets]
     y = raw[:, target_index].copy()
-    feature_indices = [i for i in range(raw.shape[1]) if i != target_index]
+    feature_names = [attribute_names[i] for i in range(raw.shape[1]) if i != target_index]
+    excluded_names = {name.lower() for name in exclude_features}
+    available_names = {name.lower() for name in feature_names}
+    missing_names = excluded_names - available_names
+    if missing_names:
+        raise ValueError(
+            "Atributos solicitados para remoção não encontrados: "
+            + ", ".join(sorted(missing_names))
+        )
+    feature_indices = [
+        i
+        for i, name in enumerate(attribute_names)
+        if i != target_index and name.lower() not in excluded_names
+    ]
+    if not feature_indices:
+        raise ValueError("A remoção solicitada deixou o dataset sem atributos preditores.")
     X = raw[:, feature_indices].copy()
 
     if X.shape[0] == 0:
@@ -161,6 +180,7 @@ def load_openml_churn(
     data_path: str | Path = DEFAULT_DATA_PATH,
     force_download: bool = False,
     timeout: float = 30.0,
+    exclude_features: tuple[str, ...] = (),
 ) -> tuple[np.ndarray, np.ndarray]:
     """Carrega o OpenML 40701 do cache local ou baixa o ARFF via urllib."""
     path = Path(data_path)
@@ -187,7 +207,7 @@ def load_openml_churn(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(arff_bytes)
 
-    X, y = parse_arff(text, target_name="class")
+    X, y = parse_arff(text, target_name="class", exclude_features=exclude_features)
     if X.shape[0] <= 1000 or X.shape[1] <= 10:
         raise ValueError(
             f"O dataset não atende ao mínimo do projeto: X.shape={X.shape}; "
