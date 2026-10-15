@@ -12,12 +12,6 @@ from .modelos import KNNClassifier, MajorityClassifier, NaiveBayesMultivariate, 
 from .preparacao import _standardize_fold, train_test_split
 
 EXCLUDED_ABLATION_FEATURES = ("phone_number", "state", "area_code")
-EXCLUDED_CHARGE_FEATURES = (
-    "total_day_charge",
-    "total_eve_charge",
-    "total_night_charge",
-    "total_intl_charge",
-)
 
 def run_self_check() -> None:
     """Checagens pequenas de shape, divisão, fit/predict e variância zero."""
@@ -69,11 +63,7 @@ def main() -> None:
         args.data,
         exclude_features=EXCLUDED_ABLATION_FEATURES,
     )
-    X_without_charges, y_without_charges = load_openml_churn(
-        args.data,
-        exclude_features=EXCLUDED_CHARGE_FEATURES,
-    )
-    if not np.array_equal(y, y_reduced) or not np.array_equal(y, y_without_charges):
+    if not np.array_equal(y, y_reduced):
         raise AssertionError("A filtragem de atributos alterou a ordem ou os rótulos do dataset.")
     classes, counts = np.unique(y, return_counts=True)
     if not np.any(classes == POSITIVE_LABEL):
@@ -114,21 +104,4 @@ def main() -> None:
         "\nNota: state e area_code foram removidos nesta ablação porque a codificação "
         "numérica atual não representa distâncias entre categorias. Isso não demonstra "
         "que localização seja irrelevante."
-    )
-
-    charge_results = run_experiments(
-        X_without_charges, y_without_charges, folds=args.folds,
-        neighbors=args.neighbors, random_state=args.seed,
-        timing_repeats=args.timing_repeats,
-    )
-    print(
-        "\nTabela 1C — Ablação sem os quatro atributos de cobrança "
-        "(mesmos folds); média ± desvio padrão entre folds"
-    )
-    print(f"Atributos preditores: {X_without_charges.shape[1]}")
-    print_table(charge_results)
-    print_confusion_matrices(charge_results)
-    print(
-        "\nNota: cada cobrança é quase uma constante multiplicada pelos minutos "
-        "correspondentes; este experimento mostra o efeito de remover os pares redundantes."
     )

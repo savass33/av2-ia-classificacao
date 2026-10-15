@@ -75,17 +75,14 @@ Matrizes de confusão agregadas dos cinco folds (linhas = classe real; colunas =
 
 ### Análises complementares de atributos
 
-O programa também executa duas ablações com os mesmos folds e a mesma semente da Tabela 1A. A primeira remove `phone_number`, que tem um valor único por registro, além de `state` e `area_code`, cujos códigos numéricos não representam distâncias categóricas. A segunda remove `total_day_charge`, `total_eve_charge`, `total_night_charge` e `total_intl_charge` para medir o efeito dos pares minutos/cobrança.
+O programa também executa uma ablação com os mesmos folds e a mesma semente da Tabela 1A. Ela remove `phone_number`, que tem um valor único por registro, além de `state` e `area_code`, cujos códigos numéricos não representam distâncias categóricas.
 
 | Conjunto de atributos | Atributos | kNN Euclidiana F1 | kNN Manhattan F1 | NB univariado F1 | NB multivariado F1 |
 |---|---:|---:|---:|---:|---:|
 | Original | 20 | 0,464 | 0,448 | **0,541** | 0,519 |
 | Sem `phone_number`, `state`, `area_code` | 17 | 0,516 | **0,529** | 0,538 | 0,517 |
-| Sem as quatro cobranças | 16 | 0,400 | 0,372 | 0,445 | **0,545** |
 
-As cobranças são quase múltiplos exatos dos minutos correspondentes: correlações observadas de 0,99999995 (diurnos), 0,99999977 (vespertinos), 0,99999921 (noturnos) e 0,99999266 (internacionais). Removê-las reduz o F1 dos dois kNN e do Naive Bayes univariado, mas eleva o F1 do multivariado de 0,519 para 0,545. Essa diferença ilustra que redundância de atributos afeta os classificadores de formas distintas.
-
-Essas ablações são exploratórias, não provam que localização seja irrelevante e não substituem o resultado principal com os 20 atributos. Uma representação categórica justa exigiria preparação apropriada a cada algoritmo; a codificação ordinal atual não é uma distância adequada para kNN. Os resultados também usam uma única semente: o desvio entre folds é descritivo e não demonstra significância estatística.
+Essa ablação é exploratória, não prova que localização seja irrelevante e não substitui o resultado principal com os 20 atributos. Uma representação categórica justa exigiria preparação apropriada a cada algoritmo; a codificação ordinal atual não é uma distância adequada para kNN. Os resultados também usam uma única semente: o desvio entre folds é descritivo e não demonstra significância estatística.
 
 O treino do kNN é rápido porque `fit` armazena os dados; a maior parte do custo aparece na predição. Mesmo com cinco medições por fold, esses tempos são aproximados e podem variar entre máquinas.
 
